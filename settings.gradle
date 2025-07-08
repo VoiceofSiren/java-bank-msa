@@ -1,2 +1,3 @@
 rootProject.name = 'bank-msa'
 include 'bank-api'
+include 'bank-domain'
