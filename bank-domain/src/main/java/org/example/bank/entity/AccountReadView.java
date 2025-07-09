@@ -4,13 +4,20 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "account_read_views")
-public class AccountReadView {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AccountReadView implements Serializable {
 
     @Id
     private Long id = 0L;
