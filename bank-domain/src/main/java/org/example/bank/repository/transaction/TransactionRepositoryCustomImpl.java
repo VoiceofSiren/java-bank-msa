@@ -1,7 +1,6 @@
 package org.example.bank.repository.transaction;
 
 import com.querydsl.core.Tuple;
-import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.example.bank.entity.Account;
