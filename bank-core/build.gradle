@@ -1,4 +1,12 @@
 dependencies {
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // DB
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
     implementation 'org.springframework:spring-context'
 
     // metric 수집, Prometheus와 연동 가능한 표준화된 API 제공
