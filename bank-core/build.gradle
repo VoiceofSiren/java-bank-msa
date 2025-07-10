@@ -1,5 +1,7 @@
 dependencies {
 
+    implementation project(':bank-domain')
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -7,10 +9,17 @@ dependencies {
     // DB
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    implementation 'org.springframework:spring-context'
-
     // metric 수집, Prometheus와 연동 가능한 표준화된 API 제공
     implementation 'io.micrometer:micrometer-core'
+    implementation 'org.springframework:spring-context'
+    implementation  'org.springframework.boot:spring-boot-starter'
+
+    // redisson
+    implementation 'org.redisson:redisson-spring-boot-starter:3.24.3'
+
+    implementation 'io.github.resilience4j:resilience4j-spring-boot2:2.0.2'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.0.2'
+    implementation 'io.github.resilience4j:resilience4j-retry:2.0.2'
 
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
