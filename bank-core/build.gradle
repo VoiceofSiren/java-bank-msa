@@ -1,0 +1,12 @@
+dependencies {
+    implementation 'org.springframework:spring-context'
+
+    // metric 수집, Prometheus와 연동 가능한 표준화된 API 제공
+    implementation 'io.micrometer:micrometer-core'
+
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
