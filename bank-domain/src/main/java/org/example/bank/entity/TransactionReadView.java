@@ -1,13 +1,20 @@
 package org.example.bank.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transaction_read_views")
-public class TransactionReadView {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class TransactionReadView implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +27,7 @@ public class TransactionReadView {
     private String accountNumber = "";
 
     @Column(nullable = false)
-    private String acountHolderName = "";
+    private String accountHolderName = "";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
