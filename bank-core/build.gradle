@@ -17,6 +17,7 @@ dependencies {
     // redisson
     implementation 'org.redisson:redisson-spring-boot-starter:3.24.3'
 
+    // circuit breaker
     implementation 'io.github.resilience4j:resilience4j-spring-boot2:2.0.2'
     implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.0.2'
     implementation 'io.github.resilience4j:resilience4j-retry:2.0.2'
