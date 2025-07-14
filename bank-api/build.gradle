@@ -5,6 +5,9 @@ dependencies {
     implementation project(':bank-event')
     implementation project(':bank-monitoring')
 
+    // jpa
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+
     // circuit breaker
     implementation("io.github.resilience4j:resilience4j-spring-boot2:2.0.2")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.0.2")

@@ -22,8 +22,22 @@ public class ApiResponse<T> {
         this.err = err;
     }
 
+    public ApiResponse() {
+
+    }
+
+    public ResponseEntity<ApiResponse<T>> success(T data) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", data));
+    }
+
     public ResponseEntity<ApiResponse<T>> success(T data, String message) {
         return ResponseEntity.ok(new ApiResponse<>(true, message, data));
+    }
+
+    public ResponseEntity<ApiResponse<T>> error(String message) {
+        return ResponseEntity.badRequest().body(
+          new ApiResponse<>(false, message, null)
+        );
     }
 
     public ResponseEntity<ApiResponse<T>> error(
