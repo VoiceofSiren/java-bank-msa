@@ -12,7 +12,13 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-
+/*
+분산락
+    1. Lettuce: Key가 있는지 주기적으로 확인
+        - 일반적으로 세밀한 제어가 가능하지만, 에러 핸들링과 재시도 로직을 개발자가 직접 관리해야 함
+    2. Redisson:
+        - 다중 노드에서도 안정적이며, 락 자동 해제, 락 연장 기능까지 제공
+ */
 @Service
 @EnableConfigurationProperties(LockProperties.class)
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class DistributedLockService<T> {
                     TimeUnit.MILLISECONDS
             );
 
+            // lock 미획득 시 에러 처리
             if (!acquired) {
                 log.error("Acquiring lock for {}", lockKey);
                 throw new LockAcquisitionException("Acquiring lock for " + lockKey, null);
@@ -41,6 +48,7 @@ public class DistributedLockService<T> {
                 return action.get();
             } finally {
                 if (lock.isHeldByCurrentThread()) {
+                    // lock 사용 여부에 관계 없이 unlock 처리
                     lock.unlock();
                 }
             }
@@ -56,6 +64,7 @@ public class DistributedLockService<T> {
     }
 
     public T executeWithTransactionLock(String from, String to, Supplier<T> action) throws InterruptedException {
+        // 데드락 방지를 위하여 정렬
         List<String> sorted = Stream.of(from, to).sorted().toList();
         String lockKey = "transaction:lock:" + sorted.get(0) + sorted.get(1);
         return executeWithLock(lockKey, action);
