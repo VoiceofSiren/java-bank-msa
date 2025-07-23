@@ -2,9 +2,12 @@ package org.example.bank.consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.example.bank.common.TxAdvice;
 import org.example.bank.entity.Account;
 import org.example.bank.entity.AccountReadView;
+import org.example.bank.entity.Transaction;
+import org.example.bank.entity.TransactionReadView;
 import org.example.bank.event.AccountCreatedEvent;
 import org.example.bank.event.TransactionCreatedEvent;
 import org.example.bank.metrics.BankMetrics;
@@ -94,10 +97,74 @@ public class EventConsumer {
         try {
             // runNew: @Transactional(propagation = Propagation.REQUIRES_NEW)
             txAdvice.runNew(() -> {
+                // 거래 찾기
+                Transaction transaction = transactionRepository.findById(event.getTransactionId()).orElseThrow(() ->
+                        new IllegalStateException("Transaction with id " + event.getTransactionId() + " Not Found"));
+
+                // 계좌 찾기
+                Account account = accountRepository.findById(event.getAccountId()).orElseThrow(() ->
+                        new IllegalStateException("Account with id " + event.getAccountId() + " Not Found"));
+
+                // CQRS 패턴 - 거래 읽기 전용
+                TransactionReadView transactionReadView = TransactionReadView.builder()
+                        .id(transaction.getId())
+                        .accountId(event.getAccountId())
+                        .accountNumber(account.getAccountNumber())
+                        .accountHolderName(account.getAccountHolderName())
+                        .type(transaction.getType())
+                        .amount(transaction.getAmount())
+                        .description(transaction.getDescription())
+                        .createdAt(transaction.getCreatedAt())
+                        .balanceAfter(account.getBalance())
+                        .build();
+                transactionReadViewRepository.save(transactionReadView);
+                log.info("TransactionReadView updated with id: {}", transactionReadView.getId());
+
+                // CQRS 패턴 - 계좌 읽기 전용
+                AccountReadView accountReadView = accountReadViewRepository.findById(account.getId()).orElseThrow(() ->
+                        new IllegalStateException("AccountReadView with id " + account.getId() + " Not Found"));
+
+                // 계좌 내용 복사
+                Integer updatedTransactionCount  = accountReadView.getTransactionCount() + 1;
+                BigDecimal updatedTotalDeposits = accountReadView.getTotalDeposits();
+                BigDecimal updatedTotalWithdrawals = accountReadView.getTotalWithdrawals();
+
+                if (transaction.getType().name().contains("DEPOSIT") ||
+                    transaction.getType().name().contains("WITHDRAWAL") ) {
+                    updatedTotalDeposits = updatedTotalDeposits.add(transaction.getAmount());
+                }
+
+                if (transaction.getType().name().contains("WITHDRAWAL") ) {
+                    updatedTotalWithdrawals = updatedTotalWithdrawals.add(transaction.getAmount());
+                } else if (transaction.getType().name().contains("TRANSFER") ) {
+                    updatedTotalWithdrawals = updatedTotalWithdrawals.add(transaction.getAmount());
+                }
+
+                AccountReadView updatedAccountReadView = AccountReadView.builder()
+                        .id(accountReadView.getId())
+                        .accountNumber(accountReadView.getAccountNumber())
+                        .accountHolderName(accountReadView.getAccountHolderName())
+                        .balance(account.getBalance())
+                        .transactionCount(updatedTransactionCount)
+                        .totalDeposits(updatedTotalDeposits)
+                        .totalWithdrawals(updatedTotalWithdrawals)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                accountReadViewRepository.save(updatedAccountReadView);
+                log.info("AccountReadView updated with id: {}", updatedAccountReadView.getId());
+
                 return null;
             });
+
+            Duration duration = Duration.between(startTime, Instant.now());
+            bankMetrics.recordEventProcessingTime(duration, eventType);
+            bankMetrics.incrementEventSuccess(eventType);
+
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error occurred while processing event: {}", eventType, e);
+            bankMetrics.incrementEventFailed(eventType);
+            throw e;
         }
     }
 }
