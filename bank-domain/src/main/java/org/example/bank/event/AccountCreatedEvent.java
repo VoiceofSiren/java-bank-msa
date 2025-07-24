@@ -1,37 +1,35 @@
 package org.example.bank.event;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AccountCreatedEvent implements DomainEvent {
 
     @Getter
-    private final Long accountId;
+    private Long accountId;
 
     @Getter
-    private final String accountNumber;
+    private String accountNumber;
 
     @Getter
-    private final String accountHolderName;
+    private String accountHolderName;
 
     @Getter
-    private final BigDecimal initialBalance;
+    private BigDecimal initialBalance;
 
-    private final LocalDateTime occurredOn;
+    private final LocalDateTime occurredOn = LocalDateTime.now();
 
-    private final String eventId;
+    private final String eventId = UUID.randomUUID().toString();
 
-    public AccountCreatedEvent(Long accountId, String accountNumber, String accountHolderName, BigDecimal initialBalance) {
-        this.accountId = accountId;
-        this.accountNumber = accountNumber;
-        this.accountHolderName = accountHolderName;
-        this.initialBalance = initialBalance;
-        this.occurredOn = LocalDateTime.now();
-        this.eventId = UUID.randomUUID().toString();
-    }
 
     @Override
     public LocalDateTime getOccurredOn() {

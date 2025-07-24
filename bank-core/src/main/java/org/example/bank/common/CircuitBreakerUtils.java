@@ -23,4 +23,9 @@ public class CircuitBreakerUtils {
                     .apply(e);
         }
     }
+
+    @FunctionalInterface
+    public interface FallbackHandler<T> {
+        T handle(Exception e);
+    }
 }
