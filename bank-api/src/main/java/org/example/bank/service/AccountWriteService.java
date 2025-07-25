@@ -19,6 +19,7 @@ import org.example.bank.metrics.BankMetrics;
 import org.example.bank.publisher.EventPublisher;
 import org.example.bank.repository.account.AccountRepository;
 import org.example.bank.repository.transaction.TransactionRepository;
+import org.example.bank.request.TransferRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -45,7 +46,7 @@ public class AccountWriteService {
         return System.currentTimeMillis() + "";
     }
 
-    private ResponseEntity<ApiResponse<AccountView>> createAccount(String name, BigDecimal balance) {
+    public ResponseEntity<ApiResponse<AccountView>> createAccount(String name, BigDecimal balance) {
         return CircuitBreakerUtils.execute(
                 circuitBreaker,
                 () -> {
@@ -80,11 +81,11 @@ public class AccountWriteService {
         );
     }
 
-    public ResponseEntity<ApiResponse<String>> transferInternal(
-            String fromAccountNumber,
-            String toAccountNumber,
-            BigDecimal amount
-    ) {
+    public ResponseEntity<ApiResponse<String>> transferInternal(TransferRequest transferRequest) {
+        String fromAccountNumber = transferRequest.getFromAccountNumber();
+        String toAccountNumber = transferRequest.getToAccountNumber();
+        BigDecimal amount = transferRequest.getAmount();
+
         Pair<List<Pair<Transaction, Account>>, String> transactionResult = txAdvice.run( () -> {
             Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber);
 
