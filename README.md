@@ -57,6 +57,8 @@ java-bank-msa/
 ├─ gradlew
 └─ gradlew.bat
 ```
+- Archiecture Diagram
+![img.png](img.png)
 
 > Note: the exact package names and class locations are found inside each module — open module folders to inspect controllers, services, repositories and event handlers.
 
