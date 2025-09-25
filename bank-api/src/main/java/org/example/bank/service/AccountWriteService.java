@@ -36,7 +36,7 @@ public class AccountWriteService {
     private final CircuitBreakerRegistry circuitBreakerRegistry;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
-    private final DistributedLockService lockService;
+    private final DistributedLockService<ResponseEntity<ApiResponse<AccountView>>> accountLockService;
     private final EventPublisher eventPublisher;
     private final BankMetrics bankMetrics;
 
@@ -47,38 +47,60 @@ public class AccountWriteService {
     }
 
     public ResponseEntity<ApiResponse<AccountView>> createAccount(String name, BigDecimal balance) {
-        return CircuitBreakerUtils.execute(
-                circuitBreaker,
-                () -> {
-                    Account savedAccount = txAdvice.run(() -> {
-                        String accountNumber = randomAccountNumber();
-                        Account account = Account.builder()
-                                .accountNumber(accountNumber)
-                                .balance(balance)
-                                .accountHolderName(name)
-                                .build();
-                        return accountRepository.save(account);
-                    });
+        String accountNumber = randomAccountNumber();
+        try {
+            return accountLockService.executeWithAccountLock(
+                    accountNumber,
+                    () ->  {
+                        return CircuitBreakerUtils.execute(
+                                // parameter1: CircuitBreaker circuitBreaker
+                                circuitBreaker,
+                                // parameter2: Supplier<T> operation
+                                () -> {
+                                    Account savedAccount = txAdvice.run(() -> {
 
-                    bankMetrics.incrementAccountCreated();
-                    bankMetrics.updateAccountCount(accountRepository.count());
-                    eventPublisher.publishAsync(
-                            AccountCreatedEvent.builder()
-                                            .accountId(savedAccount.getId())
-                                            .accountNumber(savedAccount.getAccountNumber())
-                                            .accountHolderName(savedAccount.getAccountHolderName())
-                                            .initialBalance(savedAccount.getBalance())
-                                            .build()
-                    );
-                    return new ApiResponse<AccountView>().success(
-                            AccountView.from(savedAccount),
-                            "Account Created Successfully");
-                },
-                exception -> {
-                    log.warn("Create Account Failed: {}", exception.getMessage());
-                    return new ApiResponse<AccountView>().error("Create Account Failed");
-                }
-        );
+                                        if (accountRepository.findByAccountNumber(accountNumber) != null) {
+                                            throw new IllegalStateException("Account with accountNumber " + accountNumber + " already exists");
+                                        }
+
+                                        Account account = Account.builder()
+                                                .accountNumber(accountNumber)
+                                                .balance(balance)
+                                                .accountHolderName(name)
+                                                .build();
+                                        return accountRepository.save(account);
+                                    });
+
+                                    bankMetrics.incrementAccountCreated();
+                                    bankMetrics.updateAccountCount(accountRepository.count());
+                                    eventPublisher.publishAsync(
+                                            AccountCreatedEvent.builder()
+                                                    .accountId(savedAccount.getId())
+                                                    .accountNumber(savedAccount.getAccountNumber())
+                                                    .accountHolderName(savedAccount.getAccountHolderName())
+                                                    .initialBalance(savedAccount.getBalance())
+                                                    .build()
+                                    );
+                                    return new ApiResponse<AccountView>().success(
+                                            AccountView.from(savedAccount),
+                                            "Account Created Successfully");
+                                },
+                                // parameter3: Function<Exception, T> fallback
+                                exception -> {
+                                    log.warn("Create Account Failed: {}", exception.getMessage());
+                                    return new ApiResponse<AccountView>().error("Create Account Failed");
+                                }
+                        );
+                    }
+            );
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new ApiResponse<AccountView>().error("Account creation interrupted");
+        } catch (Exception e) {
+            log.error("Account creation failed", e);
+            return new ApiResponse<AccountView>().error("Account creation failed: " + e.getMessage());
+        }
+
     }
 
     public ResponseEntity<ApiResponse<String>> transferInternal(TransferRequest transferRequest) {
