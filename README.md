@@ -2,6 +2,10 @@
 
 **Multi-module Spring Boot sample (Bank MSA)**
 
+> **Summary**
+>
+> `java-bank-msa` is a multi-module Spring Boot sample project that demonstrates a banking-like microservice architecture. The repository is organized into separate modules for API, core business logic, domain models, event handling, and monitoring. This README highlights the repository layout, how CQRS and distributed locking are applied in the project, how to run and build the modules, and some operational/implementation notes.
+
 
 ---
 
@@ -64,6 +68,53 @@ java-bank-msa/
 
 ---
 
+## CQRS & event-driven flow (how it is applied)
+
+This project applies CQRS-style separation between **write** and **read** responsibilities using an event-driven approach. The `bank-event` module contains event publishers and consumers that connect domain writes to read-model updates.
+
+Typical flow on an *order* operation (conceptual):
+
+1. **Write side (order-server / bank-core):**
+    - Client calls an API endpoint to create an order.
+    - The write service validates business rules and persists the new order in the write-side database (transactional).
+    - After persisting, the write service **publishes a domain event** (for example: `OrderCreated` or `StockDecreaseRequest`) to a message broker (Kafka is used in related examples / patterns).
+
+2. **Event bus / broker:**
+    - The event is appended to a topic (or otherwise delivered to the message bus).
+
+3. **Read-side (consumers / projections):**
+    - One or more consumers subscribed to the event topic receive the event and update one or more **read-optimized stores** (projections) or cached views.
+    - The read model(s) are designed/structured for serving queries efficiently and are independent of write-side schema and transactional constraints.
+
+**Why this pattern is used here**
+- Decouples high-throughput read workloads from transactional write workloads.
+- Enables independent scaling and optimization of read models (e.g., projection tables, caches, NoSQL stores).
+- Makes it easier to add analytic or denormalized views without impacting write transactions.
+
+> Implementation note: the repository contains a `bank-event` module intended to contain event publishers and listeners. To see the exact event class names and topic names, inspect the `bank-event` and `bank-core` modules' source code.
+
+---
+
+## Distributed lock usage (Redisson / RLock)
+
+The project uses Redis-based distributed locking (Redisson `RLock`) for critical sections where multiple instances could race on the same domain resource (for example, concurrent order processing or inventory updates). The distributed lock pattern used looks like this:
+
+- Acquire an `RLock` with a `lockKey` derived from the domain resource (e.g. `account:{accountNumber}` or `order:{orderId}`).
+- Use `tryLock(timeout, leaseTime, TimeUnit)` to attempt to obtain the lock with a wait timeout and a lease time (automatic expiration).
+- If the lock is acquired, execute the critical business logic; in a `finally` block, check `lock.isHeldByCurrentThread()` and call `unlock()` to release the lock.
+- The `leaseTime` acts as a safety net so the lock is automatically released if the holder crashes or fails to release it explicitly.
+
+**Why distributed lock is used here**
+- Prevents duplicate or conflicting updates when multiple service instances could try to update the same resource concurrently.
+- Useful where distributed transactions or database-level row locking are not suitable or insufficient for cross-service coordination.
+
+**Typical properties used** (example: see `LockProperties` in code):
+- `timeout` — maximum time to wait for acquiring the lock (ms)
+- `leaseTime` — how long the lock is held before automatic release (ms)
+- `retryInterval` / `maxRetryAttempts` — optional retry strategy parameters for repeated lock attempts
+
+---
+
 ## How to build
 
 From the project root (where `gradlew` is located):
@@ -93,21 +144,3 @@ If the modules are designed to run independently (each a Spring Boot application
 
 ---
 
-## Observations & suggestions
-
-1. **Missing top-level README** — adding this file (which you've asked me to create) helps other developers quickly understand the project layout and how to run it.
-2. **Specify Java / Spring Boot versions** — include exact versions in this README to avoid ambiguity when building locally.
-3. **Add run profiles** — document environment variables, ports, and any external dependencies (databases, message brokers) required to run the app.
-4. **Provide example requests** — include curl/Postman examples for the main API endpoints in `bank-api`.
-5. **CI / CD** — if you use GitHub Actions or other CI tools, document how they build and deploy the project.
-
----
-
-## Contributing
-
-If you'd like to contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new behavior
-4. Open a pull request describing the change
