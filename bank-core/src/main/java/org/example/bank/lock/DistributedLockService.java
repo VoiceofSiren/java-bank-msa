@@ -33,8 +33,8 @@ public class DistributedLockService<T> {
 
         try {
             boolean acquired = lock.tryLock(
-                    lockProperties.getTimeout(),
-                    lockProperties.getLeaseTime(),
+                    lockProperties.getTimeout(),    // 5 seconds
+                    lockProperties.getLeaseTime(),  // 10 seconds
                     TimeUnit.MILLISECONDS
             );
 

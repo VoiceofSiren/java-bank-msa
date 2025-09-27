@@ -37,6 +37,7 @@ public class AccountWriteService {
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final DistributedLockService<ResponseEntity<ApiResponse<AccountView>>> accountLockService;
+    private final DistributedLockService<ResponseEntity<ApiResponse<String>>> transferLockService;
     private final EventPublisher eventPublisher;
     private final BankMetrics bankMetrics;
 
@@ -108,76 +109,89 @@ public class AccountWriteService {
         String toAccountNumber = transferRequest.getToAccountNumber();
         BigDecimal amount = transferRequest.getAmount();
 
-        Pair<List<Pair<Transaction, Account>>, String> transactionResult = txAdvice.run( () -> {
-            Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber);
-
-            if (fromAccount == null) {
-                throw new IllegalStateException("Account with accountNumber " + fromAccountNumber + " Not Found");
-            }
-
-            Account toAccount = accountRepository.findByAccountNumber(toAccountNumber);
-
-            if (toAccount == null) {
-                throw new IllegalStateException("Account with accountNumber " + toAccountNumber + " Not Found");
-            }
-
-            // [1] 송금
-            fromAccount.setBalance(fromAccount.getBalance().subtract(amount));
-            toAccount.setBalance(toAccount.getBalance().add(amount));
-
-            // JPA - dirty checking
-            Account fromAccountSaved = accountRepository.save(fromAccount);
-            Account toAccountSaved = accountRepository.save(toAccount);
-
-            // [2] 거래 이벤트 처리: fromAccount
-            Transaction fromTransaction = Transaction.builder()
-                    .account(fromAccount)
-                    .amount(amount)
-                    .type(TransactionType.TRANSFER)
-                    .description("Transfer from " + fromAccountNumber + " to " + toAccountNumber)
-                    .build();
-            Transaction fromTransactionSaved = transactionRepository.save(fromTransaction);
-            bankMetrics.incrementTransaction("TRANSFER");
-
-            // [3] 거래 이벤트 처리: toAccount
-            Transaction toTransaction = Transaction.builder()
-                    .account(toAccount)
-                    .amount(amount)
-                    .type(TransactionType.TRANSFER)
-                    .description("Transfer from " + toAccountNumber + " to " + fromAccountNumber)
-                    .build();
-            Transaction toTransactionSaved = transactionRepository.save(toTransaction);
-            bankMetrics.incrementTransaction("TRANSFER");
-
-            List<Pair<Transaction, Account>> resultList = new ArrayList<>();
-            resultList.add(Pair.of(fromTransactionSaved, fromAccountSaved));
-            resultList.add(Pair.of(toTransactionSaved, toAccountSaved));
-
-            return Pair.of(resultList, null);
-        });
-
-        if (transactionResult.getLeft() == null) {
-            return new ApiResponse<String>().error(transactionResult.getValue());
+        Account fromAccount = accountRepository.findByAccountNumber(fromAccountNumber);
+        if (fromAccount == null) {
+            throw new IllegalStateException("Account with accountNumber " + fromAccountNumber + " Not Found");
         }
 
+        Account toAccount = accountRepository.findByAccountNumber(toAccountNumber);
+        if (toAccount == null) {
+            throw new IllegalStateException("Account with accountNumber " + toAccountNumber + " Not Found");
+        }
 
-        transactionResult.getLeft().forEach(pair -> {
-            Transaction transactionSaved = pair.getKey();
-            Account accountSaved = pair.getValue();
+        try {
+            return transferLockService.executeWithTransactionLock(
+                    fromAccountNumber,
+                    toAccountNumber,
+                    () -> {
+                        Pair<List<Pair<Transaction, Account>>, String> transactionResult = txAdvice.run( () -> {
+                            // [1] 송금
+                            fromAccount.setBalance(fromAccount.getBalance().subtract(amount));
+                            toAccount.setBalance(toAccount.getBalance().add(amount));
 
-            eventPublisher.publishAsync(
-                    TransactionCreatedEvent.builder()
-                            .transactionId(transactionSaved.getId())
-                            .accountId(accountSaved.getId())
-                            .type(transactionSaved.getType())
-                            .amount(amount)
-                            .description("Transaction Created")
-                            .balanceAfter(accountSaved.getBalance())
-                            .build()
+                            // JPA - dirty checking
+                            Account fromAccountSaved = accountRepository.save(fromAccount);
+                            Account toAccountSaved = accountRepository.save(toAccount);
+
+                            // [2] 거래 이벤트 처리: fromAccount
+                            Transaction fromTransaction = Transaction.builder()
+                                    .account(fromAccount)
+                                    .amount(amount)
+                                    .type(TransactionType.TRANSFER)
+                                    .description("Transfer from " + fromAccountNumber + " to " + toAccountNumber)
+                                    .build();
+                            Transaction fromTransactionSaved = transactionRepository.save(fromTransaction);
+                            bankMetrics.incrementTransaction("TRANSFER");
+
+                            // [3] 거래 이벤트 처리: toAccount
+                            Transaction toTransaction = Transaction.builder()
+                                    .account(toAccount)
+                                    .amount(amount)
+                                    .type(TransactionType.TRANSFER)
+                                    .description("Transfer from " + toAccountNumber + " to " + fromAccountNumber)
+                                    .build();
+                            Transaction toTransactionSaved = transactionRepository.save(toTransaction);
+                            bankMetrics.incrementTransaction("TRANSFER");
+
+                            List<Pair<Transaction, Account>> resultList = new ArrayList<>();
+                            resultList.add(Pair.of(fromTransactionSaved, fromAccountSaved));
+                            resultList.add(Pair.of(toTransactionSaved, toAccountSaved));
+
+                            return Pair.of(resultList, null);
+                        });
+
+                        if (transactionResult.getLeft() == null) {
+                            return new ApiResponse<String>().error(transactionResult.getValue());
+                        }
+
+
+                        transactionResult.getLeft().forEach(pair -> {
+                            Transaction transactionSaved = pair.getKey();
+                            Account accountSaved = pair.getValue();
+
+                            eventPublisher.publishAsync(
+                                    TransactionCreatedEvent.builder()
+                                            .transactionId(transactionSaved.getId())
+                                            .accountId(accountSaved.getId())
+                                            .type(transactionSaved.getType())
+                                            .amount(amount)
+                                            .description("Transaction Created")
+                                            .balanceAfter(accountSaved.getBalance())
+                                            .build()
+                            );
+                        });
+
+                        return new ApiResponse<String>().success("Transfer Successful", "Transfer Successful");
+                    }
             );
-        });
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new ApiResponse<String>().error("Transfer interrupted");
+        } catch (Exception e) {
+            log.error("Transfer failed", e);
+            return new ApiResponse<String>().error("Transfer failed: " + e.getMessage());
+        }
 
-        return new ApiResponse<String>().success("Transfer Successful", "Transfer Successful");
     }
 }
 
