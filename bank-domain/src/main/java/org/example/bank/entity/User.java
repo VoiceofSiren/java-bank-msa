@@ -4,35 +4,30 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "accounts")
+@Table(name = "users")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Account implements Serializable {
+public class User implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id = 0L;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     @Column(nullable = false, unique = true)
-    private Long userId;
-
-    @Column(nullable = false, unique = true)
-    private String accountNumber;
+    private String email;
 
     @Column(nullable = false)
-    private BigDecimal balance;
+    private String username;
 
     @Column(nullable = false)
-    private String accountHolderName;
+    private String password;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
 }

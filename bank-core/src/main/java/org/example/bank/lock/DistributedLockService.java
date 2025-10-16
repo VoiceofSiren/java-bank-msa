@@ -58,6 +58,11 @@ public class DistributedLockService<T> {
         }
     }
 
+    public T executeWithUserLock(String email, Supplier<T> action) throws InterruptedException {
+        String lockKey = "user:lock:" + email;
+        return executeWithLock(lockKey, action);
+    }
+
     public T executeWithAccountLock(String accountNumber, Supplier<T> action) throws InterruptedException {
         String lockKey = "account:lock:" + accountNumber;
         return executeWithLock(lockKey, action);
