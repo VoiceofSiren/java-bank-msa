@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 import org.example.bank.entity.User;
+import org.example.bank.entity.UserReadView;
 
 import java.io.Serializable;
 
@@ -25,4 +26,12 @@ public class UserView implements Serializable {
                 .build();
     }
 
+    public static UserView fromReadView(UserReadView userReadView) {
+        return UserView.builder()
+                .id(userReadView.getId())
+                .email(userReadView.getEmail())
+                .username(userReadView.getUsername())
+                .createdAt(userReadView.getCreatedAt().toString())
+                .build();
+    }
 }

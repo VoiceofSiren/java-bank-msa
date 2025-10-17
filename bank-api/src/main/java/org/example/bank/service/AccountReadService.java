@@ -35,7 +35,7 @@ public class AccountReadService {
     public ResponseEntity<ApiResponse<AccountView>> getAccount(String accountNumber) {
         return CircuitBreakerUtils.execute(
                 circuitBreaker,
-                () -> (ResponseEntity<ApiResponse<AccountView>>) txAdvice.readOnly(() -> {
+                () -> txAdvice.readOnly(() -> {
                     Optional<AccountReadView> response = accountReadViewRepository.findByAccountNumber(accountNumber);
 
                     if (response.isEmpty()) {
