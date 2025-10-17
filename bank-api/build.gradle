@@ -8,6 +8,18 @@ dependencies {
     // jpa
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    // redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Spring Security
+    implementation 'org.springframework.boot:spring-boot-starter-security:3.2.2'
+    testImplementation 'org.springframework.security:spring-security-test'
+
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
     // circuit breaker
     implementation("io.github.resilience4j:resilience4j-spring-boot2:2.0.2")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.0.2")
@@ -19,6 +31,8 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
 }
 
 dependencyManagement {

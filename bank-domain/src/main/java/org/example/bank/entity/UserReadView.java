@@ -23,10 +23,13 @@ public class UserReadView implements Serializable {
     private String id;
 
     @Column(nullable = false)
+    private String username;
+
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false)
-    private String username;
+    private String password;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

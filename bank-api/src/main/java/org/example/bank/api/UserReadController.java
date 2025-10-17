@@ -1,14 +1,20 @@
 package org.example.bank.api;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.bank.common.ApiResponse;
-import org.example.bank.dto.UserView;
+import org.example.bank.jwt.CookieUtils;
+import org.example.bank.jwt.TokenResponse;
 import org.example.bank.request.UserLoginRequest;
 import org.example.bank.service.UserReadService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/read")
@@ -20,11 +26,17 @@ public class UserReadController {
     private final UserReadService userReadService;
 
     @PostMapping("/users/log-in")
-    public ResponseEntity<ApiResponse<UserView>> logIn(
-            @RequestBody UserLoginRequest userLoginRequest
+    public ResponseEntity<ApiResponse<TokenResponse>> logIn(
+            @RequestBody UserLoginRequest userLoginRequest,
+            HttpServletResponse response
             ) {
         log.info("log in user: {}", userLoginRequest.getEmail());
 
-        return userReadService.getAuth(userLoginRequest);
+        ResponseEntity<ApiResponse<TokenResponse>> result = userReadService.getAuth(userLoginRequest);
+        if (result.getBody().getSuccess().booleanValue() == true) {
+            Cookie refreshCookie = CookieUtils.createCookie(result.getBody().getData().getRefreshToken(), "refreshToken");
+            response.addCookie(refreshCookie);
+        }
+        return result;
     }
 }

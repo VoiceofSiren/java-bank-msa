@@ -21,6 +21,9 @@ public class AccountCreatedEvent implements DomainEvent {
     private String accountNumber;
 
     @Getter
+    private String userId;
+
+    @Getter
     private String accountHolderName;
 
     @Getter

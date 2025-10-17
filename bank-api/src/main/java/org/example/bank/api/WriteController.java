@@ -11,10 +11,7 @@ import org.example.bank.request.AccountCreateRequest;
 import org.example.bank.request.TransferRequest;
 import org.example.bank.service.AccountWriteService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 
 @Slf4j
@@ -33,9 +30,9 @@ public class WriteController {
     public ResponseEntity<ApiResponse<AccountView>> createAccount(
             @RequestBody AccountCreateRequest accountCreateRequest
             ) {
-        log.info("Creates account for: {}, with initial balance: {}",
-                accountCreateRequest.getName(),accountCreateRequest.getInitialBalance());
-        return accountWriteService.createAccount(accountCreateRequest.getName(), accountCreateRequest.getInitialBalance());
+        log.info("Creates account for user: {}, with initial balance: {}",
+                accountCreateRequest.getUserId(),accountCreateRequest.getInitialBalance());
+        return accountWriteService.createAccount(accountCreateRequest);
     }
 
     @Operation(

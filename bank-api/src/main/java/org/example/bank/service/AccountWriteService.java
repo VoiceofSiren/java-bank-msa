@@ -19,8 +19,11 @@ import org.example.bank.metrics.BankMetrics;
 import org.example.bank.publisher.EventPublisher;
 import org.example.bank.repository.account.AccountRepository;
 import org.example.bank.repository.transaction.TransactionRepository;
+import org.example.bank.request.AccountCreateRequest;
 import org.example.bank.request.TransferRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -47,8 +50,14 @@ public class AccountWriteService {
         return System.currentTimeMillis() + "";
     }
 
-    public ResponseEntity<ApiResponse<AccountView>> createAccount(String name, BigDecimal balance) {
+    public ResponseEntity<ApiResponse<AccountView>> createAccount(AccountCreateRequest accountCreateRequest) {
+
+        String userId = accountCreateRequest.getUserId();
+        String name = accountCreateRequest.getUsername();
+        BigDecimal balance = accountCreateRequest.getInitialBalance();
         String accountNumber = randomAccountNumber();
+
+        SecurityContextHolder.getContextHolderStrategy().getContext().getAuthentication().getName()
         try {
             return accountLockService.executeWithAccountLock(
                     accountNumber,
@@ -67,8 +76,11 @@ public class AccountWriteService {
                                         Account account = Account.builder()
                                                 .accountNumber(accountNumber)
                                                 .balance(balance)
+                                                .userId(userId)
                                                 .accountHolderName(name)
                                                 .build();
+
+                                        // TODO: User entity 내 accountCount 값 증가 처리
                                         return accountRepository.save(account);
                                     });
 
@@ -78,6 +90,7 @@ public class AccountWriteService {
                                             AccountCreatedEvent.builder()
                                                     .accountId(savedAccount.getId())
                                                     .accountNumber(savedAccount.getAccountNumber())
+                                                    .userId(savedAccount.getUserId())
                                                     .accountHolderName(savedAccount.getAccountHolderName())
                                                     .initialBalance(savedAccount.getBalance())
                                                     .build()

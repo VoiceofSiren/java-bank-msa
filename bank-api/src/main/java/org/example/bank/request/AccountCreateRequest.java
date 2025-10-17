@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 
 @Getter
 public class AccountCreateRequest {
-    private String name;
+    private String userId;
+    private String username;
     private BigDecimal initialBalance;
 }

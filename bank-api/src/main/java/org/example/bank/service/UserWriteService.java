@@ -15,6 +15,7 @@ import org.example.bank.publisher.EventPublisher;
 import org.example.bank.repository.user.UserRepository;
 import org.example.bank.request.UserCreateRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -27,6 +28,7 @@ public class UserWriteService {
     private final UserRepository userRepository;
     private final DistributedLockService<ResponseEntity<ApiResponse<UserView>>> userLockService;
     private final EventPublisher eventPublisher;
+    private final PasswordEncoder passwordEncoder;
 
     private final CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker("userWrite");
 
@@ -50,7 +52,7 @@ public class UserWriteService {
                                         User user = User.builder()
                                                 .username(userCreateRequest.getUsername())
                                                 .email(email)
-                                                .password(userCreateRequest.getPassword())
+                                                .password(passwordEncoder.encode(userCreateRequest.getPassword()))
                                                 .build();
                                         return userRepository.save(user);
                                     });
@@ -60,6 +62,7 @@ public class UserWriteService {
                                                     .userId(savedUser.getId())
                                                     .username(savedUser.getUsername())
                                                     .email(savedUser.getEmail())
+                                                    .password(savedUser.getPassword())
                                                     .build()
                                     );
                                     return new ApiResponse<UserView>().success(

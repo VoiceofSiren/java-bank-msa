@@ -17,10 +17,13 @@ public class UserCreatedEvent implements DomainEvent {
     private String userId;
 
     @Getter
+    private String username;
+
+    @Getter
     private String email;
 
     @Getter
-    private String username;
+    private String password;
 
     private final LocalDateTime occurredOn = LocalDateTime.now();
 
