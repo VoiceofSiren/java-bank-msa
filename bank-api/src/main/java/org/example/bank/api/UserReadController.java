@@ -6,15 +6,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.bank.common.ApiResponse;
+import org.example.bank.entity.UserReadView;
 import org.example.bank.jwt.CookieUtils;
 import org.example.bank.jwt.TokenResponse;
 import org.example.bank.request.UserLoginRequest;
 import org.example.bank.service.UserReadService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/read")
@@ -38,5 +36,12 @@ public class UserReadController {
             response.addCookie(refreshCookie);
         }
         return result;
+    }
+
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<ApiResponse<UserReadView>> showMyInfo(
+            @PathVariable(name = "userId") String userId
+    ) {
+        return userReadService.getUserInfo(userId);
     }
 }

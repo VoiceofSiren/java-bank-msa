@@ -43,4 +43,22 @@ public class UserReadView implements Serializable {
 
     @Column(nullable = false)
     private BigDecimal totalBalance = BigDecimal.ZERO;
+
+    public void createAccount(BigDecimal initialBalance) {
+        this.accountCount++;
+        this.totalBalance = this.totalBalance.add(initialBalance);
+    }
+
+    public void increaseBalance(BigDecimal amount) {
+        this.totalBalance = this.totalBalance.add(amount);
+    }
+
+    public void decreaseBalance(BigDecimal amount) {
+        this.totalBalance = this.totalBalance.subtract(amount);
+    }
+
+    public void removeAccount(BigDecimal lastBalance) {
+        this.accountCount--;
+        this.totalBalance = this.totalBalance.subtract(lastBalance);
+    }
 }

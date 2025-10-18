@@ -70,4 +70,22 @@ public class UserReadService {
     }
 
 
+    public ResponseEntity<ApiResponse<UserReadView>> getUserInfo(String userId) {
+        return CircuitBreakerUtils.execute(
+                circuitBreaker,
+                () -> txAdvice.readOnly(() -> {
+                    Optional<UserReadView> userReadView = userReadViewRepository.findById(userId);
+
+                    if (userReadView.isEmpty()) {
+                        return new ApiResponse<UserReadView>().error("User Not Found");
+                    } else {
+                        return new ApiResponse<UserReadView>().success(userReadView.get());
+                    }
+                }),
+                exception -> {
+                    log.warn("Get User Failed: {}", exception.getMessage());
+                    return new ApiResponse<UserReadView>().error("Get User Failed");
+                }
+        );
+    }
 }

@@ -12,6 +12,7 @@ import org.example.bank.dto.AccountView;
 import org.example.bank.entity.Account;
 import org.example.bank.entity.Transaction;
 import org.example.bank.entity.TransactionType;
+import org.example.bank.entity.UserReadView;
 import org.example.bank.event.AccountCreatedEvent;
 import org.example.bank.event.TransactionCreatedEvent;
 import org.example.bank.lock.DistributedLockService;
@@ -19,16 +20,18 @@ import org.example.bank.metrics.BankMetrics;
 import org.example.bank.publisher.EventPublisher;
 import org.example.bank.repository.account.AccountRepository;
 import org.example.bank.repository.transaction.TransactionRepository;
+import org.example.bank.repository.user.UserRepository;
+import org.example.bank.repository.userReadView.UserReadViewRepository;
 import org.example.bank.request.AccountCreateRequest;
 import org.example.bank.request.TransferRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 
 @Slf4j
@@ -39,6 +42,7 @@ public class AccountWriteService {
     private final CircuitBreakerRegistry circuitBreakerRegistry;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final UserReadViewRepository userReadViewRepository;
     private final DistributedLockService<ResponseEntity<ApiResponse<AccountView>>> accountLockService;
     private final DistributedLockService<ResponseEntity<ApiResponse<String>>> transferLockService;
     private final EventPublisher eventPublisher;
@@ -57,7 +61,7 @@ public class AccountWriteService {
         BigDecimal balance = accountCreateRequest.getInitialBalance();
         String accountNumber = randomAccountNumber();
 
-        SecurityContextHolder.getContextHolderStrategy().getContext().getAuthentication().getName()
+        String email = SecurityContextHolder.getContextHolderStrategy().getContext().getAuthentication().getName();
         try {
             return accountLockService.executeWithAccountLock(
                     accountNumber,
@@ -80,7 +84,12 @@ public class AccountWriteService {
                                                 .accountHolderName(name)
                                                 .build();
 
-                                        // TODO: User entity 내 accountCount 값 증가 처리
+                                        Optional<UserReadView> userReadView = userReadViewRepository.findByEmail(email);
+                                        userReadView.ifPresent(userReadViewEntity -> {
+                                            userReadViewEntity.createAccount(balance);
+                                            userReadViewRepository.save(userReadViewEntity);
+                                        });
+
                                         return accountRepository.save(account);
                                     });
 
@@ -145,6 +154,20 @@ public class AccountWriteService {
                             // JPA - dirty checking
                             Account fromAccountSaved = accountRepository.save(fromAccount);
                             Account toAccountSaved = accountRepository.save(toAccount);
+
+                            // 읽기 전용 필드 최적화
+                            String fromUserId = fromAccountSaved.getUserId();
+                            String toUserId = toAccountSaved.getUserId();
+
+                            userReadViewRepository.findById(fromUserId).ifPresent(userReadViewEntity -> {
+                                userReadViewEntity.decreaseBalance(amount);
+                                userReadViewRepository.save(userReadViewEntity);
+                            });
+
+                            userReadViewRepository.findById(toUserId).ifPresent(userReadViewEntity -> {
+                                userReadViewEntity.increaseBalance(amount);
+                                userReadViewRepository.save(userReadViewEntity);
+                            });
 
                             // [2] 거래 이벤트 처리: fromAccount
                             Transaction fromTransaction = Transaction.builder()
