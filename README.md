@@ -7,7 +7,9 @@ Multi-module Spring Boot 예제 프로젝트 — 은행 도메인 마이크로�
 ## 요약
 
 `java-bank-msa`는 multi-module 방식으로 구성된 Spring Boot 사이드 프로젝트입니다.
+
 API, 핵심 비즈니스 로직, 도메인 모델, 이벤트 처리, 모니터링 등 관심사를 모듈로 분리하여
+
 CQRS 및 이벤트 기반 흐름, Redis 기반 분산 락 사용 패턴을 보여줍니다.
 
 ---
