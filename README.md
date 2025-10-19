@@ -1,123 +1,74 @@
-# java-bank-msa
+# java-bank-msa (한글 README)
 
-**Multi-module Spring Boot sample (Bank MSA)**
-
-> **Summary**
->
-> `java-bank-msa` is a multi-module Spring Boot sample project that demonstrates a banking-like microservice architecture. The repository is organized into separate modules for API, core business logic, domain models, event handling, and monitoring. This README highlights the repository layout, how CQRS and distributed locking are applied in the project, how to run and build the modules, and some operational/implementation notes.
-
+Multi-module Spring Boot 예제 프로젝트 — 은행(유사) 도메인 마이크로서비스 아키텍처
 
 ---
 
-## Project overview
+## 요약
 
-`java-bank-msa` is a multi-module Java project (Spring Boot) that implements a simple banking microservices sample. The repository is organized into multiple modules to separate concerns such as API, core logic, domain models, events, and monitoring.
-
-> Modules observed in the repository root:
-> - `bank-api`
-> - `bank-core`
-> - `bank-domain`
-> - `bank-event`
-> - `bank-monitoring`
-> - `gradle/` (wrapper)
-
-(These module names come from the repository's top-level listing.)
+`java-bank-msa`는 multi-module 방식으로 구성된 Spring Boot 사이드 프로젝트입니다. API, 핵심 비즈니스 로직, 도메인 모델, 이벤트 처리, 모니터링 등 관심사를 모듈로 분리하여 CQRS 및 이벤트 기반 흐름, Redis 기반 분산 락 사용 패턴을 보여줍니다.
 
 ---
 
-## Goals & Intent
+## 목적
 
-The project appears intended to demonstrate multi-module Spring Boot architecture for a banking-like domain, including:
-
-- clear separation between API, domain and core business logic
-- event handling / domain events
-- monitoring support
-- Gradle multi-module build
+- 멀티 모듈(Spring/Gradle) 구조 예시
+- 쓰기/읽기 분리(CQRS) + 이벤트 기반 프로세스 예시
+- Redis(Redisson) 기반 분산 락 사용 예시
+- 모니터링/관찰성 샘플 제공
 
 ---
 
-## Tech stack
+## 기술 스택
 
 - Java 17
-- Spring Boot (multi-module apps usually use Spring Boot)
-- Gradle wrapper (`gradlew` / `gradlew.bat` present)
-
-(See the repository's `build.gradle` and module `build.gradle` files for exact versions and plugin configuration.)
+- Spring Boot
+- Gradle (wrapper 포함)
+- Redis (Redisson)
+- 메시지 브로커
 
 ---
 
-## Project structure (high level)
+## 저장소 구조(상위)
 
 ```
 java-bank-msa/
-├─ bank-api/           # REST controllers, DTOs, API layer
-├─ bank-core/          # core services, business logic
-├─ bank-domain/        # domain model objects, entities
-├─ bank-event/         # domain events, event publishers/listeners
-├─ bank-monitoring/    # monitoring / observability related code
-├─ gradle/             # gradle wrapper files
+├─ bank-api/           # REST 컨트롤러, DTO, API 레이어
+├─ bank-core/          # 핵심 서비스, 비즈니스 로직
+├─ bank-domain/        # 엔티티, 도메인 객체
+├─ bank-event/         # 도메인 이벤트 발행/구독자
+├─ bank-monitoring/    # 모니터링 관련 구성
+├─ gradle/             # gradle wrapper
 ├─ build.gradle
 ├─ settings.gradle
 ├─ gradlew
 └─ gradlew.bat
 ```
-- Archiecture Diagram
-![img.png](img.png)
-
-> Note: the exact package names and class locations are found inside each module — open module folders to inspect controllers, services, repositories and event handlers.
 
 ---
 
-## CQRS & event-driven flow (how it is applied)
+## 주요 개념
 
-This project applies CQRS-style separation between **write** and **read** responsibilities using an event-driven approach. The `bank-event` module contains event publishers and consumers that connect domain writes to read-model updates.
+### CQRS & 이벤트 기반 흐름
 
-Typical flow on an *order* operation (conceptual):
+- 쓰기(Write) 측에서 트랜잭션으로 상태를 변경한 뒤 도메인 이벤트(`OrderCreated`, `TransactionCreated` 등)를 발행한다.
+- 이벤트는 메시지 버스에 게시되고, 읽기(Read) 측(프로젝션 혹은 소비자)이 해당 이벤트를 구독하여 조회 전용 모델을 갱신한다.
+- 이로 인해 읽기와 쓰기를 독립적으로 확장 가능하고, 읽기 최적화 테이블(혹은 캐시)을 자유롭게 설계할 수 있다.
 
-1. **Write side (order-server / bank-core):**
-    - Client calls an API endpoint to create an order.
-    - The write service validates business rules and persists the new order in the write-side database (transactional).
-    - After persisting, the write service **publishes a domain event** (for example: `OrderCreated` or `StockDecreaseRequest`) to a message broker (Kafka is used in related examples / patterns).
+### 분산 락 (Redisson `RLock`)
 
-2. **Event bus / broker:**
-    - The event is appended to a topic (or otherwise delivered to the message bus).
-
-3. **Read-side (consumers / projections):**
-    - One or more consumers subscribed to the event topic receive the event and update one or more **read-optimized stores** (projections) or cached views.
-    - The read model(s) are designed/structured for serving queries efficiently and are independent of write-side schema and transactional constraints.
-
-**Why this pattern is used here**
-- Decouples high-throughput read workloads from transactional write workloads.
-- Enables independent scaling and optimization of read models (e.g., projection tables, caches, NoSQL stores).
-- Makes it easier to add analytic or denormalized views without impacting write transactions.
-
-> Implementation note: the repository contains a `bank-event` module intended to contain event publishers and listeners. To see the exact event class names and topic names, inspect the `bank-event` and `bank-core` modules' source code.
+- 동시성 문제(예: 동일 계좌 동시 출금)를 회피하기 위해 Redis 기반 분산 락을 사용.
+- 일반적 사용 패턴:
+   - `RLock lock = redissonClient.getLock(lockKey)`
+   - `lock.tryLock(waitTime, leaseTime, TimeUnit.MILLISECONDS)`
+   - 비즈니스 실행 후 `if (lock.isHeldByCurrentThread()) lock.unlock()`
+- `leaseTime`으로 안전한 자동 해제 보장.
 
 ---
 
-## Distributed lock usage (Redisson / RLock)
+## 빌드
 
-The project uses Redis-based distributed locking (Redisson `RLock`) for critical sections where multiple instances could race on the same domain resource (for example, concurrent order processing or inventory updates). The distributed lock pattern used looks like this:
-
-- Acquire an `RLock` with a `lockKey` derived from the domain resource (e.g. `account:{accountNumber}` or `order:{orderId}`).
-- Use `tryLock(timeout, leaseTime, TimeUnit)` to attempt to obtain the lock with a wait timeout and a lease time (automatic expiration).
-- If the lock is acquired, execute the critical business logic; in a `finally` block, check `lock.isHeldByCurrentThread()` and call `unlock()` to release the lock.
-- The `leaseTime` acts as a safety net so the lock is automatically released if the holder crashes or fails to release it explicitly.
-
-**Why distributed lock is used here**
-- Prevents duplicate or conflicting updates when multiple service instances could try to update the same resource concurrently.
-- Useful where distributed transactions or database-level row locking are not suitable or insufficient for cross-service coordination.
-
-**Typical properties used** (example: see `LockProperties` in code):
-- `timeout` — maximum time to wait for acquiring the lock (ms)
-- `leaseTime` — how long the lock is held before automatic release (ms)
-- `retryInterval` / `maxRetryAttempts` — optional retry strategy parameters for repeated lock attempts
-
----
-
-## How to build
-
-From the project root (where `gradlew` is located):
+루트에서 전체 빌드:
 
 ```bash
 # Unix / macOS
@@ -127,20 +78,47 @@ From the project root (where `gradlew` is located):
 gradlew.bat clean build
 ```
 
-This will assemble all modules and run tests. If you prefer to build a single module, run `./gradlew :bank-api:build` (replace module name accordingly).
+특정 모듈만 빌드:
+
+```bash
+./gradlew :bank-api:build
+```
 
 ---
 
-## How to run (development)
+## 실행(개발용)
 
-Most Spring Boot modules can be started with `bootRun` from their module directory or from the root by specifying the subproject:
+각 모듈에서 `bootRun`을 사용하거나 루트에서 서브프로젝트를 지정하여 실행합니다.
 
 ```bash
-# run API module
+# API 모듈 실행 예시
 ./gradlew :bank-api:bootRun
 ```
 
-If the modules are designed to run independently (each a Spring Boot application), run the specific module you want to test. If the repo uses an application composition (gateway, config server, etc.), start those dependencies in order.
+모듈들이 독립적 Spring Boot 앱이라면 의존 서비스(예: Redis, DB, Kafka 등)를 먼저 띄워주세요.
 
 ---
+
+## ERD
+
+CQRS 패턴을 도입하여 Query 테이블과 Command 테이블을 분리하였습니다.
+
+|                  | Command 테이블           | Query 테이블             |
+|------------------|-----------------------|-----------------------|
+| User (사용자)       | ![erd1.png](erd1.png) | ![erd2.png](erd2.png) |
+| Account (계좌)     | ![erd3.png](erd3.png) | ![erd4.png](erd4.png) |
+| Transaction (거래) | ![erd5.png](erd5.png) | ![erd6.png](erd6.png) |
+
+> 주: 실제 코드의 엔티티 필드명은 `bank-domain` 모듈의 소스 코드를 참조하세요. 위 ERD는 이해를 돕기 위한 표준화된 예시입니다.
+
+
+---
+
+## 운영/구현 노트
+
+- 모듈화된 구조로 인해 특정 기능(예: 이벤트 발행/구독, 모니터링)을 독립적으로 확장/교체 가능합니다.
+- 테스트와 로컬 개발을 위해 Docker Compose로 DB, Redis 등을 띄우면 편리합니다.
+- 분산락은 성능과 장애 시 복구 전략(leaseTime, 재시도 정책)을 신중히 설계해야 합니다.
+
+
 
