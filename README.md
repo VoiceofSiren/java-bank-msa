@@ -1,6 +1,6 @@
 # java-bank-msa (한글 README)
 
-Multi-module Spring Boot 예제 프로젝트 — 은행(유사) 도메인 마이크로서비스 아키텍처
+Multi-module Spring Boot 예제 프로젝트 — 은행 도메인 마이크로서비스 아키텍처
 
 ---
 
@@ -31,7 +31,7 @@ CQRS 및 이벤트 기반 흐름, Redis 기반 분산 락 사용 패턴을 보�
 
 ---
 
-## 저장소 구조(상위)
+## 프로젝트 구조(상위)
 
 ```
 java-bank-msa/
@@ -119,11 +119,6 @@ Content-Type: application/json
 
 - 단일 트랜잭션(@Transactional) 범위를 넘어서는 분산 트랜잭션의 경우, 보상 트랜잭션(Compensating Transaction) 전략을 사용합니다.
 - 예를 들어, 거래 실패 시 반대 방향의 취소 이벤트를 발행하여 상태를 복구합니다.
-
-
----
-
-
 
 
 ---
