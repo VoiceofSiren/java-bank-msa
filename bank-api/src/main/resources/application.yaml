@@ -17,3 +17,15 @@ logging:
   level:
     com.example.bank: INFO # (INFO , WARN , ERROR)
     io.github.resilience4j : DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
