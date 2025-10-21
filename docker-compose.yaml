@@ -1,9 +1,71 @@
 version: '3.9'
 
 services:
+  # 서비스 정의
+  # 시계열 데이터베이스 및 모니터링 시스템
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bank-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      # 설정 파일
+      - ./monitoring/prometheus.yml:etc/prometheus/prometheus.yml
+      # 시계열 데이터 저장소
+      - prometheus-data:/prometheus
+    command:
+      # 설정 파일 경로
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      # TSDB (시계열 데이터) 저장 경로
+      - '--storage.tsdb.path=/prometheus'
+      # 콘솔 라이브러리
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      # 데이터 보존 기간
+      - '--stroage.tsdb.retention.time=200h'
+      # 실시간으로 설정 재로드
+      - '--web.enable-lifecycle'
+      # 관리자 API
+      - '--web.enable-admin-api'
+    networks:
+      - bank-monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bank-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - bank-monitoring
+    restart: unless-stopped
+
   redis:
     image: redis:latest
     container_name: redis
     command: redis-server --requirepass systempass --port 6379
     ports:
       - "6379:6379"
+
+networks:
+  bank-monitoring:
+    # bridge: 기본 드라이버 (단일 호스팅)
+    # overlay: 다중 호스팅
+    # host: 호스트 네트워크를 직접 사용 (격리 상태가 없음)
+    # none: 네트워크 비활성화
+    # macvlan: MAC 주소 할당
+    driver: bridge
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
